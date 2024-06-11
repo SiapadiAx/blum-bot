@@ -5,3 +5,8 @@ blum bot auto claim/tap
 
 ## Requirement
 - Python 3.11
+
+## How to run
+1. Clone/download this repository
+2. > pip install -r requirements.txt
+3. > python main.py
