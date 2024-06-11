@@ -3,6 +3,12 @@ blum bot auto claim/tap
 
 <img width="607" alt="2024-06-11 22_07_09-tokens txt - blum-bot - Visual Studio Code" src="https://github.com/maldiharyojudanto/blum-bot/assets/76139419/aea9cc1e-3b00-4791-a092-999048bb2963">
 
+## Feature 
+- Auto daily check-in
+- Auto start/claim farming
+- Auto complete tasks
+- Auto claim refferal balance
+
 ## Requirement
 - Python 3.11
 
@@ -17,3 +23,4 @@ blum bot auto claim/tap
 3. Open bot
 4. Press F12 or right click then select inspect element
 5. Go to Network tab - Fetch/XHR - Header - Authorization (copy token after Baarer/start with eyJxxx)
+6. Separate tokens with newline (for multiple account)
