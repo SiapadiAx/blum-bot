@@ -17,7 +17,7 @@ blum bot auto claim/tap https://t.me/BlumCryptoBot
 2. > pip install -r requirements.txt
 3. > python main.py
 
-## How to get tokens?
+## How to get token?
 1. Open telegram web/desktop
 2. Go to Settings - Advanced - Experimental settings - Enable webview inspecting
 3. Open bot
