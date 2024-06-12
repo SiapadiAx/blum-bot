@@ -8,6 +8,7 @@ blum bot auto claim/tap https://t.me/BlumCryptoBot
 - Auto start/claim farming
 - Auto complete tasks
 - Auto claim refferal balance
+- Auto refresh token
 
 ## Requirement
 - Python 3.11
