@@ -544,7 +544,7 @@ async def runRefresh(tokens, token, id):
 
 # coroutine main
 async def main():
-    os.system('cls') # remove the printed 
+    os.system("cls" if os.name == "nt" else "clear") # remove the printed 
 
     sekarang = time.time()
     nanti = time.time() + int(os.getenv("REFRESH_TOKEN"))
@@ -601,7 +601,7 @@ async def main():
                 time.sleep(3)
                 nanti = time.time() + int(os.getenv("REFRESH_TOKEN"))
                 
-            os.system('cls') # remove the printed 
+            os.system("cls" if os.name == "nt" else "clear") # remove the printed 
         except FileNotFoundError:
             tf = open('tokens.txt', 'w')
             tf.write('token1\ntoken2\ntoken3\netc')
