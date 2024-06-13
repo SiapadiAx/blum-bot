@@ -23,5 +23,5 @@ blum bot auto claim/tap https://t.me/BlumCryptoBot
 2. Go to Settings - Advanced - Experimental settings - Enable webview inspecting
 3. Open bot
 4. Press F12 or right click then select inspect element
-5. Go to Network tab - Fetch/XHR - Header - Authorization (copy token after Baarer/start with eyJxxx)
+5. Go to Network tab - Fetch/XHR - Header - Authorization (copy token after Baarer/start with ```eyJxxx```)
 6. Separate tokens with newline (for multiple account)
