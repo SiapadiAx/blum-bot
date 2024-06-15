@@ -10,6 +10,40 @@ from dotenv import load_dotenv
 init()
 load_dotenv() 
 
+async def createToken(session, query):
+    url = "https://gateway.blum.codes/v1/auth/provider/PROVIDER_TELEGRAM_MINI_APP"
+
+    payload = "{\"query\":\"%s\",\"variables\":{}}" % query
+
+    headers = {
+        'accept': 'application/json, text/plain, */*',
+        'accept-language': 'en-US,en;q=0.9',
+        'content-type': 'application/json',
+        'origin': 'https://telegram.blum.codes',
+        'priority': 'u=1, i',
+        'sec-ch-ua': '"Microsoft Edge";v="125", "Chromium";v="125", "Not.A/Brand";v="24", "Microsoft Edge WebView2";v="125"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-site',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0'
+    }
+
+    while True:
+        try:
+            resp = await session.post(url, headers=headers, data=payload)
+
+            if resp.status_code == 200:
+                # print(resp.json())
+                return resp.json()
+            else:
+                continue
+        except httpx.HTTPError as e:
+            print(f"Error to createToken, HTTP error, try again ... {e}")
+            continue
+    
+
 # coroutine to get time at the moment (UNIX timestamp)
 async def getTimeNow(session, token):
     url = "https://game-domain.blum.codes/api/v1/time/now"
@@ -458,19 +492,18 @@ async def claimReffBal(session, token):
 # function to print out the all information
 def statusPrint(username, cekin_status, balance, farm_status, tasks_status, reff_status, rline):
     if rline == True: # will activated the (end="\n")
-        print(f"[{username['username']}] | Daily check-in : {cekin_status} | Balance : {Fore.GREEN}{balance['availableBalance']}{Style.RESET_ALL} | Status : {farm_status} | Tasks : {tasks_status} | Refferals : {reff_status}", end='\n')
+        print(f"[{username}] | Daily check-in : {cekin_status} | Balance : {Fore.GREEN}{balance['availableBalance']}{Style.RESET_ALL} | Status : {farm_status} | Tasks : {tasks_status} | Refferals : {reff_status}", end='\n')
     else:
-        print(f"[{username['username']}] | Daily check-in : {cekin_status} | Balance : {Fore.GREEN}{balance['availableBalance']}{Style.RESET_ALL} | Status : {farm_status} | Tasks : {tasks_status} | Refferals : {reff_status}")
+        print(f"[{username}] | Daily check-in : {cekin_status} | Balance : {Fore.GREEN}{balance['availableBalance']}{Style.RESET_ALL} | Status : {farm_status} | Tasks : {tasks_status} | Refferals : {reff_status}")
 
 # this coroutine will run the others courutine and the main of program
-async def runAll(token, i):
+async def runAll(username, token):
 
     # create async session with httpx
-    async with httpx.AsyncClient(timeout=60) as session:
+    async with httpx.AsyncClient(timeout=30) as session:
 
         # Run all GET and await
         timenow = await getTimeNow(session, token)
-        username = await getUsername(session, token)
         daily = await dailyCheck(session, token, "GET")
         balance = await getBalance(session, token)
         task_list = await getTasks(session, token)
@@ -524,7 +557,6 @@ async def runAll(token, i):
             if timenow['now'] > balance['farming']['endTime']:
                 statusPrint(username, cekin_status, balance, f"{Fore.YELLOW}Available to claim{Style.RESET_ALL}", tasks_status, reff_status, True)
                 await claimBalance(session, token)
-                statusPrint(username, cekin_status, balance, f"{Fore.GREEN}Claimed{Style.RESET_ALL}", tasks_status, reff_status, False)
             else:
                 statusPrint(username, cekin_status, balance, f"{Fore.YELLOW}Farming{Style.RESET_ALL}", tasks_status, reff_status, False)
         else:
@@ -532,20 +564,50 @@ async def runAll(token, i):
             await startFarming(session, token)
 
 # coroutine to run the refresh token
-async def runRefresh(tokens, token, id):
-    async with httpx.AsyncClient(timeout=60) as session:
+async def runRefresh(tokens, token, username, id):
+    async with httpx.AsyncClient() as session:
         token_refresh = await refreshToken(session, token)
-        token_new = token_refresh['refresh']
+        tokenauth = token_refresh['access']
+        tokenref = token_refresh['refresh']
 
         # To overwrite the token for each line
-        tokens[id] = f"{token_new}\n"
+        tokens[id] = f"{username}|{tokenauth}|{tokenref}\n"
         with open('tokens.txt', 'w') as tf:
             tf.writelines(tokens)
+
+
+async def runCreateToken():
+    try:
+        with open('query.txt', 'r') as qf:
+            querys = qf.readlines()
+            async with httpx.AsyncClient() as session:
+                for i in range(len(querys)):
+                    # print(querys[i].strip())
+                    query = querys[i].strip()
+
+                    token = await createToken(session, query)
+                    userid = token['token']['user']['username']
+                    token_acc = token['token']['access']
+                    token_refresh = token['token']['refresh']
+
+                    querys[i] = f"{userid}|{token_acc}|{token_refresh}\n"
+
+                    with open('tokens.txt', 'w+') as tf:
+                        tf.writelines(querys)
+        print("Create token success!")
+    except FileNotFoundError:
+        qf = open('query.txt', 'w')
+        print("Fill the query.txt first!")
+        qf.write("query1\nquery2\netc...")
+        qf.close()
+        exit()
 
 # coroutine main
 async def main():
     os.system("cls" if os.name == "nt" else "clear") # remove the printed 
 
+    print("Create token started")
+    await runCreateToken()
     sekarang = time.time()
     nanti = time.time() + int(os.getenv("REFRESH_TOKEN"))
 
@@ -567,7 +629,11 @@ async def main():
                 tokens = tf.readlines() 
                 for i in range(len(tokens)):
                     token = tokens[i].strip()
-                    schedules.append(asyncio.create_task(runAll(token, i)))
+                    splittoken = token.split("|")
+                    # print(splittoken)
+                    tokenauth = splittoken[1]
+                    username = splittoken[0]
+                    schedules.append(asyncio.create_task(runAll(username, tokenauth)))
             
             # gather to run concurently
             await asyncio.gather(*schedules) # BOOOMMMM TO RUN
@@ -595,10 +661,14 @@ async def main():
                     tokens = tf.readlines() 
                     for i in range(len(tokens)):
                         token = tokens[i].strip()
-                        schedules_refresh.append(asyncio.create_task(runRefresh(tokens, token, i)))
+                        splittoken = token.split("|")
+                        # print(splittoken)
+                        tokenref = splittoken[2]
+                        usernamenya = splittoken[0]
+                        schedules_refresh.append(asyncio.create_task(runRefresh(tokens, tokenref, usernamenya, i)))
                 # gather to run concurently
                 await asyncio.gather(*schedules_refresh) # BOOOMMMM TO RUN
-                time.sleep(3)
+                time.sleep(5)
                 nanti = time.time() + int(os.getenv("REFRESH_TOKEN"))
                 
             os.system("cls" if os.name == "nt" else "clear") # remove the printed 
