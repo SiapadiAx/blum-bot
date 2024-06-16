@@ -447,6 +447,9 @@ async def clickClaimTasks(session, id, token):
             elif response.status_code == 400: # task is already claimed
                 # print(response.json())
                 break
+            elif response.status_code == 412: # Task is not done"
+                # print(response.json())
+                break
             else:
                 continue
         except httpx.HTTPError as e:
@@ -489,12 +492,88 @@ async def claimReffBal(session, token):
             print(f"Error to claimReffBal, HTTP error, try again ...  {e}")
             continue
 
+async def playGame(session, token):
+    url = "https://game-domain.blum.codes/api/v1/game/play"
+
+    headers = {
+        'accept': 'application/json, text/plain, */*',
+        'accept-language': 'en-US,en;q=0.9',
+        'authorization': f'Bearer {token}',
+        'content-length': '0',
+        'origin': 'https://telegram.blum.codes',
+        'priority': 'u=1, i',
+        'sec-ch-ua': '"Microsoft Edge";v="125", "Chromium";v="125", "Not.A/Brand";v="24", "Microsoft Edge WebView2";v="125"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-site',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0'
+    }
+
+    while True:
+        try:
+            response = await session.post(url, headers=headers)
+            
+            if response.status_code == 200:
+                # print(response.json())
+                return response.json()
+            elif response.status_code == 400:
+                # print(response.json())
+                return response.json()
+            else:
+                continue
+        except httpx.HTTPError as e:
+            print(f"Error to playGame, HTTP error, try again ...  {e}")
+            continue
+
+async def claimGame(session, token, gameid):
+    url = "https://game-domain.blum.codes/api/v1/game/claim"
+
+    payload = json.dumps({
+        "gameId": f"{gameid}",
+        "points": int(os.getenv("GAME_POINT"))
+    })
+
+    headers = {
+        'accept': 'application/json, text/plain, */*',
+        'accept-language': 'en-US,en;q=0.9',
+        'authorization': f'Bearer {token}',
+        'content-type': 'application/json',
+        'origin': 'https://telegram.blum.codes',
+        'priority': 'u=1, i',
+        'sec-ch-ua': '"Microsoft Edge";v="125", "Chromium";v="125", "Not.A/Brand";v="24", "Microsoft Edge WebView2";v="125"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-site',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0'
+    }
+
+    while True:
+        try:
+            response = await session.post(url, headers=headers, data=payload)
+
+            if response.status_code == 200:
+                # print(response.json())
+                break
+            if response.status_code == 400:
+                continue
+            if response.status_code == 404:
+                break
+            else:
+                continue
+        except httpx.HTTPError as e:
+            print(f"Error to claimGame, HTTP error, try again ...  {e}")
+            continue
+
 # function to print out the all information
-def statusPrint(username, cekin_status, balance, farm_status, tasks_status, reff_status, rline):
+def statusPrint(username, cekin_status, balance, farm_status, tasks_status, reff_status, rline, statplay):
     if rline == True: # will activated the (end="\n")
-        print(f"[{username}] | Daily check-in : {cekin_status} | Balance : {Fore.GREEN}{balance['availableBalance']}{Style.RESET_ALL} | Status : {farm_status} | Tasks : {tasks_status} | Refferals : {reff_status}", end='\n')
+        print(f"[{username}] | Daily check-in : {cekin_status} | Balance : {Fore.GREEN}{balance['availableBalance']}{Style.RESET_ALL} | Status : {farm_status} | Tasks : {tasks_status} | Auto play game : {statplay} | Refferals : {reff_status}", end='\n')
     else:
-        print(f"[{username}] | Daily check-in : {cekin_status} | Balance : {Fore.GREEN}{balance['availableBalance']}{Style.RESET_ALL} | Status : {farm_status} | Tasks : {tasks_status} | Refferals : {reff_status}")
+        print(f"[{username}] | Daily check-in : {cekin_status} | Balance : {Fore.GREEN}{balance['availableBalance']}{Style.RESET_ALL} | Status : {farm_status} | Tasks : {tasks_status} | Auto play game : {statplay} | Refferals : {reff_status}")
 
 # this coroutine will run the others courutine and the main of program
 async def runAll(username, token):
@@ -509,6 +588,7 @@ async def runAll(username, token):
         task_list = await getTasks(session, token)
         reff_list = await getReffList(session, token)
         reff_bal = await getReffBal(session, token)
+
         
         # Run all POST and await
         cekin_status = "-"
@@ -516,7 +596,7 @@ async def runAll(username, token):
             cekin_status = f"{Fore.YELLOW}Available to claim{Style.RESET_ALL}"
             await dailyCheck(session, token, "POST")
         else:
-            cekin_status = f"{Fore.GREEN}Completed{Style.RESET_ALL}"
+            cekin_status = f"{Fore.GREEN}Done{Style.RESET_ALL}"
 
         tasks_status = "-"
         for key in task_list:
@@ -527,21 +607,31 @@ async def runAll(username, token):
                 continue
 
         for key in task_list:
-            if key['status'] == "DONE" and key['title'] != "Subscribe to Blum Telegram":
+            if key['status'] == "READY_FOR_CLAIM" or key['status'] == "DONE" and key['title'] != "Subscribe to Blum Telegram":
                 await clickClaimTasks(session, key['id'], token)
                 tasks_status = f"{Fore.YELLOW}Available to claim{Style.RESET_ALL}"
             else:
                 continue
+        
+        for i in task_list:
+            if i['kind'] == "QUEST":
+                for k in i['subTasks']:
+                    # print(k['id'])
+                    await startClaimTasks(session, k['id'], token)
+                
+                for k in i['subTasks']:
+                    # print(k['id'])
+                    await clickClaimTasks(session, k['id'], token)
 
         jumlah_task_selesai = 0
         for key in task_list:
-            if key['status'] == "CLAIMED":
+            if key['status'] == "FINISHED":
                 jumlah_task_selesai = jumlah_task_selesai + 1
         
-        if jumlah_task_selesai >= 8:
-            tasks_status = f"{Fore.GREEN}All task completed{Style.RESET_ALL}"
+        if jumlah_task_selesai > 10:
+            tasks_status = f"{Fore.GREEN}More than 10 completed{Style.RESET_ALL}"
         else:
-            tasks_status = f"{Fore.YELLOW}Loading{Style.RESET_ALL}"
+            tasks_status = f"{Fore.YELLOW}Less than 10{Style.RESET_ALL}"
         
         reff_status = "-"
         if reff_list['friends'] != []:
@@ -551,21 +641,30 @@ async def runAll(username, token):
             else:
                 reff_status = f"{Fore.GREEN}{len(reff_list['friends'])}{Style.RESET_ALL}"
         else:
-            reff_status = f"{Fore.RED}0{Style.RESET_ALL}"
+            reff_status = 0
+
+        if os.getenv("AUTO_PLAY_GAME") == "true":
+            statplay = "On"
+            playgame = await playGame(session, token)
+            if 'gameId' in playgame:
+                idgame = playgame['gameId']
+                await claimGame(session, token, idgame)
+            else:
+                pass
 
         if 'farming' in balance:
             if timenow['now'] > balance['farming']['endTime']:
-                statusPrint(username, cekin_status, balance, f"{Fore.YELLOW}Available to claim{Style.RESET_ALL}", tasks_status, reff_status, True)
+                statusPrint(username, cekin_status, balance, f"{Fore.YELLOW}Available to claim{Style.RESET_ALL}", tasks_status, reff_status, True, statplay)
                 await claimBalance(session, token)
             else:
-                statusPrint(username, cekin_status, balance, f"{Fore.YELLOW}Farming{Style.RESET_ALL}", tasks_status, reff_status, False)
+                statusPrint(username, cekin_status, balance, f"{Fore.YELLOW}Farming{Style.RESET_ALL}", tasks_status, reff_status, False, statplay)
         else:
-            statusPrint(username, cekin_status, balance, f"{Fore.YELLOW}Farming started{Style.RESET_ALL}", tasks_status, reff_status, False)
+            statusPrint(username, cekin_status, balance, f"{Fore.YELLOW}Farming started{Style.RESET_ALL}", tasks_status, reff_status, False, statplay)
             await startFarming(session, token)
 
 # coroutine to run the refresh token
 async def runRefresh(tokens, token, username, id):
-    async with httpx.AsyncClient() as session:
+    async with httpx.AsyncClient(timeout=30) as session:
         token_refresh = await refreshToken(session, token)
         tokenauth = token_refresh['access']
         tokenref = token_refresh['refresh']
@@ -580,7 +679,7 @@ async def runCreateToken():
     try:
         with open('query.txt', 'r') as qf:
             querys = qf.readlines()
-            async with httpx.AsyncClient() as session:
+            async with httpx.AsyncClient(timeout=30) as session:
                 for i in range(len(querys)):
                     # print(querys[i].strip())
                     query = querys[i].strip()
@@ -613,12 +712,11 @@ async def main():
 
     while sekarang < nanti:
         print("""
- _     _                                         _          _           _   
-| |__ | |_   _ _ __ ___     ___ _ __ _   _ _ __ | |_ ___   | |__   ___ | |_ 
-| '_ \| | | | | '_ ` _ \   / __| '__| | | | '_ \| __/ _ \  | '_ \ / _ \| __|
-| |_) | | |_| | | | | | | | (__| |  | |_| | |_) | || (_) | | |_) | (_) | |_ 
-|_.__/|_|\__,_|_| |_| |_|  \___|_|   \__, | .__/ \__\___/  |_.__/ \___/ \__|
-                                     |___/|_|                               
+ _     _                   _           _   
+| |__ | |_   _ _ __ ___   | |__   ___ | |_ 
+| '_ \| | | | | '_ ` _ \  | '_ \ / _ \| __|
+| |_) | | |_| | | | | | | | |_) | (_) | |_ 
+|_.__/|_|\__,_|_| |_| |_| |_.__/ \___/ \__|
         """)
         try:
             start = time.time()
