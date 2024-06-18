@@ -214,7 +214,7 @@ async def getTasks(session, token):
 
 # coroutine to check the list of refferals
 async def getReffList(session, token):
-    url = "https://gateway.blum.codes/v1/friends"
+    url = "https://gateway.blum.codes/v1/friends?pageSize=1000"
 
     headers = {
         'accept': 'application/json, text/plain, */*',
